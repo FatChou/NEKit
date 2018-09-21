@@ -44,6 +44,7 @@ public class UDPDirectStack: IPStackProtocol, NWUDPSocketDelegate {
                 return false
             }
         }
+        //检测是否是UDP协议
         if IPPacket.peekProtocol(packet) == .udp {
             input(packet)
             return true

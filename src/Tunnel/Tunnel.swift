@@ -150,6 +150,7 @@ public class Tunnel: NSObject, SocketDelegate {
         observer?.signal(.receivedRequest(session, from: from, on: self))
         
         if !session.isIP() {
+            //域名解析
             _ = Resolver.resolve(hostname: session.host, timeout: Opt.DNSTimeout) { [weak self] resolver, err in
                 QueueFactory.getQueue().async {
                     if err != nil {

@@ -125,13 +125,27 @@ public class SOCKS5ProxySocket: ProxySocket {
             }
         case .readingMethods:
             // TODO: check for 0x00 in read data
-
-            let response = Data(bytes: [0x05, 0x00])
+            //从APP到代理服务器的数据头：VER(1) NMETHODS(2) METHODS(1-255)
+            //VER 占用1个字节，表示当前协议版本，在这里肯定就是0x05了。
+            //NMETHODS 占用1个字节，表示本地支持连接校验方式的数量。
+            //METHODS 占用1-255个字节，每个METHOD占用一个字节，也就是说前面的NMETHODS是几就表示后面的METHODS有多少个字节，连接校验的方法主要是无需认证，需要用户名密码认证之类的。
+            
+            //在shadowsocks的实现中，浏览器与ss-local连接是不需要认证的，可以直连，因此响应中METHOD的值设为0x00表示无需认证。
+            let response = Data(bytes: [0x05, 0x00])//0x00表示无需认证
             // we would not be able to read anything before the data is written out, so no need to handle the dataWrote event.
-            write(data: response)
+            //METHOD则是从客户端发来的METHODS中选择一个支持的认证方式返回给客户端，如果都不支持那就返回0xFF表示无可接受的方法，此时握手结束。
+            write(data: response)//收到后需响应APP VER(1) METHOD(1)
             readStatus = .readingConnectHeader
             socket.readDataTo(length: 4)
+            //以上APP与代理服务器握手成功，结束了握手协议以后，socks5协议规定，此时客户端需要把要访问的目标地址（这个是真实的地址）发送给代理服务器，协议格式如下：
         case .readingConnectHeader:
+            //读取APP发给代理服务器的数据头
+            //VER 占用1个字节，表示当前协议版本
+            //CMD SOCK的命令码，占用1个字节，表示建立连接的类型，其中，0x01表示CONNECT请求，0x02表示BIND请求，0x03表示UDP转发
+            //RSV 0x00，保留字段
+            //ATYP DST.ADDR类型，其中0x01表示IPv4地址，此时DST.ADDR部分4字节长度。0x03则表示域名，此时DST.ADDR部分第一个字节为域名长度，DST.ADDR剩余的内容为域名，没有\0结尾。0x04表示IPv6地址，此时DST.ADDR部分16个字节长度。
+            //DST.ADDR 目标服务地址
+            //DST.PORT 网络字节序表示的目标服务的端口
             data.withUnsafeBytes { (pointer: UnsafePointer<UInt8>) in
                 guard pointer.pointee == 5 && pointer.successor().pointee == 1 else {
                     // TODO: notify observer
@@ -196,8 +210,8 @@ public class SOCKS5ProxySocket: ProxySocket {
 
             readStatus = .forwarding
             session = ConnectSession(host: destinationHost, port: destinationPort)
-            observer?.signal(.receivedRequest(session!, on: self))
-            delegate?.didReceive(session: session!, from: self)
+            observer?.signal(.receivedRequest(session!, on: self))//收到请求
+            delegate?.didReceive(session: session!, from: self)//连接远程代理服务器
         default:
             return
         }
@@ -236,6 +250,10 @@ public class SOCKS5ProxySocket: ProxySocket {
             return
         }
 
+        //VER 表示当前协议版本
+        //REP 应答字段，0x00表示成功，0x01普通SOCKS服务器连接失败，0x02现有规则不允许连接，0x03网络不可达，0x04主机不可达，0x05连接被拒，0x06 TTL超时，0x07不支持的命令，0x08不支持的地址类型，0x09 - 0xFF未定义
+        //RSV 0x00，保留字段
+        //ATYP
         var responseBytes = [UInt8](repeating: 0, count: 10)
         responseBytes[0...3] = [0x05, 0x00, 0x00, 0x01]
         let responseData = Data(bytes: responseBytes)
