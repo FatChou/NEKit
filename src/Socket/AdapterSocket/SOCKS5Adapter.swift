@@ -50,7 +50,8 @@ public class SOCKS5Adapter: AdapterSocket {
         internalStatus = .readingMethodResponse
         socket.readDataTo(length: 2)
     }
-
+    
+    //读取远程代理服务器的数据
     public override func didRead(data: Data, from socket: RawTCPSocketProtocol) {
         super.didRead(data: data, from: socket)
 
@@ -81,11 +82,11 @@ public class SOCKS5Adapter: AdapterSocket {
             var readLength = 0
             data.withUnsafeBytes { (ptr: UnsafePointer<UInt8>) in
                 switch ptr.advanced(by: 3).pointee {
-                case 1:
+                case 1://ipv4
                     readLength = 3 + 2
-                case 3:
+                case 3://域名
                     readLength = Int(ptr.advanced(by: 1).pointee) + 2
-                case 4:
+                case 4://ipv6
                     readLength = 15 + 2
                 default:
                     break

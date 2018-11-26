@@ -56,7 +56,7 @@ public class Tunnel: NSObject, SocketDelegate {
         return _cancelled
     }
     
-    fileprivate var _status: TunnelStatus = .invalid
+    fileprivate var _status: TunnelStatus = .invalid//隧道状态
     public var status: TunnelStatus {
         return _status
     }
@@ -207,6 +207,9 @@ public class Tunnel: NSObject, SocketDelegate {
         checkStatus()
     }
     
+    //以下判断的socket，读写逻辑:
+    //如果是本地代理套接字，则将数据用adapter转发到远程代理服务器
+    //如果是收到远程服务器响应，则将数据转发给本地代理服
     public func didRead(data: Data, from socket: SocketProtocol) {
         if let socket = socket as? ProxySocket {
             observer?.signal(.proxySocketReadData(data, from: socket, on: self))
